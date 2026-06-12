@@ -1,161 +1,243 @@
-import json
-import os
+import streamlit as st
+import time
 
-SAVE_FILE = "save.json"
+st.set_page_config(page_title="Galaxy Conquest", page_icon="🌌", layout="wide")
+
+# -----------------
+# 초기 데이터
+# -----------------
+
+if "stars" not in st.session_state:
+    st.session_state.stars = 0
+
+if "fleet" not in st.session_state:
+    st.session_state.fleet = 1
+
+if "prestige" not in st.session_state:
+    st.session_state.prestige = 0
+
+if "research" not in st.session_state:
+    st.session_state.research = []
+
+if "planets" not in st.session_state:
+    st.session_state.planets = []
+
+if "achievements" not in st.session_state:
+    st.session_state.achievements = []
+
+if "last_tick" not in st.session_state:
+    st.session_state.last_tick = time.time()
+
+# -----------------
+# 데이터
+# -----------------
 
 PLANETS = [
-    ("Earth", 100),
-    ("Mars", 300),
-    ("Europa", 800),
-    ("Titan", 2000),
-    ("Kepler-22b", 5000),
-    ("Proxima b", 12000),
-    ("Andromeda Prime", 30000),
-    ("Triangulum One", 80000),
+    ("Earth", "Milky Way", 100),
+    ("Mars", "Milky Way", 250),
+    ("Europa", "Milky Way", 500),
+    ("Titan", "Milky Way", 1000),
+    ("Kepler-22b", "Milky Way", 2500),
+    ("Proxima Centauri b", "Milky Way", 5000),
+    ("Andromeda Prime", "Andromeda", 10000),
+    ("M31-X", "Andromeda", 25000),
+    ("Triangulum One", "Triangulum", 50000),
+    ("M87 Prime", "Messier 87", 100000),
+    ("IC-1101A", "IC 1101", 250000),
+    ("Centaurus-A7", "Centaurus A", 500000),
 ]
 
-def load_game():
-    if os.path.exists(SAVE_FILE):
-        try:
-            with open(SAVE_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            pass
+RESEARCH = {
+    "Mining Drones": (1000, 2),
+    "Quantum Mining": (5000, 5),
+    "Dyson Swarm": (25000, 10),
+    "AI Civilization": (100000, 25),
+}
 
-    return {
-        "stars": 0,
-        "fleet": 1,
-        "prestige": 0,
-        "planets": []
-    }
+# -----------------
+# 자동 생산
+# -----------------
 
-def save_game(data):
-    with open(SAVE_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-
-def mining_power(data):
-    return (
+def mining_power():
+    power = (
         10
-        + data["fleet"] * 5
-        + len(data["planets"]) * 20
-        + data["prestige"] * 100
+        + st.session_state.fleet * 3
+        + len(st.session_state.planets) * 5
+        + st.session_state.prestige * 50
     )
 
-def show_status(data):
-    print("\n" + "=" * 40)
-    print("GALAXY CONQUEST")
-    print("=" * 40)
-    print("⭐ 자원:", data["stars"])
-    print("🚀 함대:", data["fleet"])
-    print("🌌 프레스티지:", data["prestige"])
-    print("🪐 정복 행성:", len(data["planets"]))
-    print("⛏ 채굴력:", mining_power(data))
-    print("=" * 40)
+    for r in st.session_state.research:
+        power *= RESEARCH[r][1]
 
-def mine(data):
-    gain = mining_power(data)
-    data["stars"] += gain
-    print(f"+{gain} 자원 획득")
+    return int(power)
 
-def build_fleet(data):
-    cost = data["fleet"] * 50
+now = time.time()
+elapsed = now - st.session_state.last_tick
 
-    if data["stars"] < cost:
-        print("자원이 부족합니다.")
-        return
+if elapsed >= 1:
+    st.session_state.stars += int(mining_power() * elapsed)
+    st.session_state.last_tick = now
 
-    data["stars"] -= cost
-    data["fleet"] += 1
+# -----------------
+# 업적
+# -----------------
 
-    print("함대 건조 완료")
+if len(st.session_state.planets) >= 1 and "첫 정복" not in st.session_state.achievements:
+    st.session_state.achievements.append("첫 정복")
 
-def conquer(data):
-    available = []
+if len(st.session_state.planets) >= 5 and "우주 개척자" not in st.session_state.achievements:
+    st.session_state.achievements.append("우주 개척자")
 
-    for planet, cost in PLANETS:
-        if planet not in data["planets"]:
-            available.append((planet, cost))
+if st.session_state.prestige >= 1 and "문명 승천" not in st.session_state.achievements:
+    st.session_state.achievements.append("문명 승천")
 
-    if not available:
-        print("모든 행성을 정복했습니다.")
-        return
+# -----------------
+# UI
+# -----------------
 
-    print("\n정복 가능한 행성")
+st.title("🌌 Galaxy Conquest")
 
-    for i, (planet, cost) in enumerate(available, start=1):
-        print(f"{i}. {planet} (비용 {cost})")
+c1, c2, c3, c4 = st.columns(4)
 
-    try:
-        choice = int(input("번호 선택: ")) - 1
+c1.metric("⭐ 자원", f"{st.session_state.stars:,}")
+c2.metric("🚀 함대", st.session_state.fleet)
+c3.metric("🪐 행성", len(st.session_state.planets))
+c4.metric("🌠 프레스티지", st.session_state.prestige)
 
-        planet, cost = available[choice]
+st.progress(min(len(st.session_state.planets) / 12, 1.0))
 
-        if data["stars"] < cost:
-            print("자원이 부족합니다.")
-            return
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["채굴", "함대", "정복", "연구", "프레스티지"]
+)
 
-        data["stars"] -= cost
-        data["planets"].append(planet)
+# -----------------
+# 채굴
+# -----------------
 
-        print(f"{planet} 정복 성공!")
+with tab1:
+    st.subheader("자원 생산")
 
-    except:
-        print("잘못된 입력")
+    st.write("초당 생산량:", mining_power())
 
-def prestige(data):
-    need = 5 + data["prestige"] * 3
+    if st.button("⛏ 즉시 채굴"):
+        st.session_state.stars += mining_power()
+        st.rerun()
 
-    if len(data["planets"]) < need:
-        print(f"행성 {need}개 필요")
-        return
+# -----------------
+# 함대
+# -----------------
 
-    data["prestige"] += 1
-    data["stars"] = 0
-    data["fleet"] = 1
-    data["planets"] = []
+with tab2:
+    st.subheader("함대")
 
-    print("🌌 프레스티지 성공!")
+    fleet_cost = st.session_state.fleet * 100
 
-def main():
-    data = load_game()
+    st.write("건조 비용:", fleet_cost)
 
-    while True:
-        show_status(data)
+    if st.button("🚀 함대 건조"):
+        if st.session_state.stars >= fleet_cost:
+            st.session_state.stars -= fleet_cost
+            st.session_state.fleet += 1
+            st.rerun()
 
-        print("""
-1. 자원 채굴
-2. 함대 건조
-3. 행성 정복
-4. 프레스티지
-5. 저장
-6. 종료
-""")
+# -----------------
+# 정복
+# -----------------
 
-        choice = input("> ")
+with tab3:
+    st.subheader("행성 정복")
 
-        if choice == "1":
-            mine(data)
+    for name, galaxy, cost in PLANETS:
 
-        elif choice == "2":
-            build_fleet(data)
+        owned = name in st.session_state.planets
 
-        elif choice == "3":
-            conquer(data)
+        col1, col2 = st.columns([4, 1])
 
-        elif choice == "4":
-            prestige(data)
+        with col1:
+            st.write(
+                f"🪐 {name} | {galaxy} | 비용 {cost:,}"
+            )
 
-        elif choice == "5":
-            save_game(data)
-            print("저장 완료")
+        with col2:
 
-        elif choice == "6":
-            save_game(data)
-            print("게임 종료")
-            break
+            if owned:
+                st.success("소유")
+
+            else:
+                if st.button(
+                    f"정복 {name}",
+                    key=name
+                ):
+                    if st.session_state.stars >= cost:
+                        st.session_state.stars -= cost
+                        st.session_state.planets.append(name)
+                        st.rerun()
+
+# -----------------
+# 연구
+# -----------------
+
+with tab4:
+    st.subheader("기술 연구")
+
+    for name, info in RESEARCH.items():
+
+        cost = info[0]
+
+        if name in st.session_state.research:
+            st.success(name)
 
         else:
-            print("잘못된 입력")
+            if st.button(
+                f"{name} ({cost:,})",
+                key=f"research_{name}"
+            ):
+                if st.session_state.stars >= cost:
+                    st.session_state.stars -= cost
+                    st.session_state.research.append(name)
+                    st.rerun()
 
-if __name__ == "__main__":
-    main()
+# -----------------
+# 프레스티지
+# -----------------
+
+with tab5:
+
+    need = 5 + st.session_state.prestige * 3
+
+    st.write(
+        f"필요 행성 수: {need}"
+    )
+
+    if st.button("🌠 문명 승천"):
+
+        if len(st.session_state.planets) >= need:
+
+            st.session_state.prestige += 1
+
+            st.session_state.stars = 0
+            st.session_state.fleet = 1
+            st.session_state.planets = []
+            st.session_state.research = []
+
+            st.rerun()
+
+# -----------------
+# 사이드바
+# -----------------
+
+with st.sidebar:
+
+    st.header("🏆 업적")
+
+    if st.session_state.achievements:
+        for a in st.session_state.achievements:
+            st.success(a)
+    else:
+        st.write("없음")
+
+    st.header("📊 통계")
+
+    st.write("초당 생산:", mining_power())
+    st.write("연구 수:", len(st.session_state.research))
+    st.write("정복 수:", len(st.session_state.planets))
