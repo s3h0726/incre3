@@ -1,11 +1,12 @@
 import streamlit as st
+import plotly.graph_objects as go
 import time
 
-st.set_page_config(page_title="Galaxy Conquest", page_icon="🌌", layout="wide")
+st.set_page_config(page_title="Galaxy Conquest 3D", layout="wide")
 
-# -----------------
-# 초기 데이터
-# -----------------
+# ----------------
+# Save Data
+# ----------------
 
 if "stars" not in st.session_state:
     st.session_state.stars = 0
@@ -16,228 +17,171 @@ if "fleet" not in st.session_state:
 if "prestige" not in st.session_state:
     st.session_state.prestige = 0
 
-if "research" not in st.session_state:
-    st.session_state.research = []
-
 if "planets" not in st.session_state:
     st.session_state.planets = []
 
-if "achievements" not in st.session_state:
-    st.session_state.achievements = []
+if "last_update" not in st.session_state:
+    st.session_state.last_update = time.time()
 
-if "last_tick" not in st.session_state:
-    st.session_state.last_tick = time.time()
-
-# -----------------
-# 데이터
-# -----------------
+# ----------------
+# Planet Data
+# ----------------
 
 PLANETS = [
-    ("Earth", "Milky Way", 100),
-    ("Mars", "Milky Way", 250),
-    ("Europa", "Milky Way", 500),
-    ("Titan", "Milky Way", 1000),
-    ("Kepler-22b", "Milky Way", 2500),
-    ("Proxima Centauri b", "Milky Way", 5000),
-    ("Andromeda Prime", "Andromeda", 10000),
-    ("M31-X", "Andromeda", 25000),
-    ("Triangulum One", "Triangulum", 50000),
-    ("M87 Prime", "Messier 87", 100000),
-    ("IC-1101A", "IC 1101", 250000),
-    ("Centaurus-A7", "Centaurus A", 500000),
+    ("Earth", 0, 0, 0, 100),
+    ("Mars", 10, 5, 2, 300),
+    ("Europa", -8, 3, 7, 1000),
+    ("Titan", 15, -10, 6, 3000),
+    ("Kepler-22b", 25, 15, -5, 10000),
+    ("Proxima b", -20, 20, 15, 25000),
+    ("Andromeda Prime", 50, 50, 50, 100000),
 ]
 
-RESEARCH = {
-    "Mining Drones": (1000, 2),
-    "Quantum Mining": (5000, 5),
-    "Dyson Swarm": (25000, 10),
-    "AI Civilization": (100000, 25),
-}
+# ----------------
+# Idle Production
+# ----------------
 
-# -----------------
-# 자동 생산
-# -----------------
-
-def mining_power():
-    power = (
-        10
-        + st.session_state.fleet * 3
-        + len(st.session_state.planets) * 5
-        + st.session_state.prestige * 50
-    )
-
-    for r in st.session_state.research:
-        power *= RESEARCH[r][1]
-
-    return int(power)
+production = (
+    10
+    + st.session_state.fleet * 5
+    + len(st.session_state.planets) * 20
+    + st.session_state.prestige * 100
+)
 
 now = time.time()
-elapsed = now - st.session_state.last_tick
+delta = now - st.session_state.last_update
 
-if elapsed >= 1:
-    st.session_state.stars += int(mining_power() * elapsed)
-    st.session_state.last_tick = now
+st.session_state.stars += int(delta * production)
+st.session_state.last_update = now
 
-# -----------------
-# 업적
-# -----------------
+# ----------------
+# Header
+# ----------------
 
-if len(st.session_state.planets) >= 1 and "첫 정복" not in st.session_state.achievements:
-    st.session_state.achievements.append("첫 정복")
-
-if len(st.session_state.planets) >= 5 and "우주 개척자" not in st.session_state.achievements:
-    st.session_state.achievements.append("우주 개척자")
-
-if st.session_state.prestige >= 1 and "문명 승천" not in st.session_state.achievements:
-    st.session_state.achievements.append("문명 승천")
-
-# -----------------
-# UI
-# -----------------
-
-st.title("🌌 Galaxy Conquest")
+st.title("🌌 Galaxy Conquest 3D")
 
 c1, c2, c3, c4 = st.columns(4)
 
-c1.metric("⭐ 자원", f"{st.session_state.stars:,}")
-c2.metric("🚀 함대", st.session_state.fleet)
-c3.metric("🪐 행성", len(st.session_state.planets))
-c4.metric("🌠 프레스티지", st.session_state.prestige)
+c1.metric("⭐ Stars", f"{st.session_state.stars:,}")
+c2.metric("🚀 Fleet", st.session_state.fleet)
+c3.metric("🪐 Planets", len(st.session_state.planets))
+c4.metric("🌠 Prestige", st.session_state.prestige)
 
-st.progress(min(len(st.session_state.planets) / 12, 1.0))
+# ----------------
+# 3D Galaxy Map
+# ----------------
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["채굴", "함대", "정복", "연구", "프레스티지"]
+x = [p[1] for p in PLANETS]
+y = [p[2] for p in PLANETS]
+z = [p[3] for p in PLANETS]
+labels = [p[0] for p in PLANETS]
+
+fig = go.Figure()
+
+fig.add_trace(
+    go.Scatter3d(
+        x=x,
+        y=y,
+        z=z,
+        mode="markers+text",
+        text=labels,
+        textposition="top center",
+        marker=dict(
+            size=8
+        )
+    )
 )
 
-# -----------------
-# 채굴
-# -----------------
+fig.update_layout(
+    height=600,
+    margin=dict(l=0, r=0, b=0, t=0)
+)
 
-with tab1:
-    st.subheader("자원 생산")
+st.plotly_chart(fig, use_container_width=True)
 
-    st.write("초당 생산량:", mining_power())
+# ----------------
+# Conquest
+# ----------------
 
-    if st.button("⛏ 즉시 채굴"):
-        st.session_state.stars += mining_power()
-        st.rerun()
+st.subheader("🪐 Planet Conquest")
 
-# -----------------
-# 함대
-# -----------------
+for name, px, py, pz, cost in PLANETS:
 
-with tab2:
-    st.subheader("함대")
+    owned = name in st.session_state.planets
 
-    fleet_cost = st.session_state.fleet * 100
+    col1, col2 = st.columns([4,1])
 
-    st.write("건조 비용:", fleet_cost)
+    with col1:
+        st.write(
+            f"{name} | Cost: {cost:,}"
+        )
 
-    if st.button("🚀 함대 건조"):
-        if st.session_state.stars >= fleet_cost:
-            st.session_state.stars -= fleet_cost
-            st.session_state.fleet += 1
-            st.rerun()
+    with col2:
 
-# -----------------
-# 정복
-# -----------------
-
-with tab3:
-    st.subheader("행성 정복")
-
-    for name, galaxy, cost in PLANETS:
-
-        owned = name in st.session_state.planets
-
-        col1, col2 = st.columns([4, 1])
-
-        with col1:
-            st.write(
-                f"🪐 {name} | {galaxy} | 비용 {cost:,}"
-            )
-
-        with col2:
-
-            if owned:
-                st.success("소유")
-
-            else:
-                if st.button(
-                    f"정복 {name}",
-                    key=name
-                ):
-                    if st.session_state.stars >= cost:
-                        st.session_state.stars -= cost
-                        st.session_state.planets.append(name)
-                        st.rerun()
-
-# -----------------
-# 연구
-# -----------------
-
-with tab4:
-    st.subheader("기술 연구")
-
-    for name, info in RESEARCH.items():
-
-        cost = info[0]
-
-        if name in st.session_state.research:
-            st.success(name)
+        if owned:
+            st.success("Owned")
 
         else:
             if st.button(
-                f"{name} ({cost:,})",
-                key=f"research_{name}"
+                f"Conquer {name}",
+                key=name
             ):
+
                 if st.session_state.stars >= cost:
+
                     st.session_state.stars -= cost
-                    st.session_state.research.append(name)
+
+                    st.session_state.planets.append(
+                        name
+                    )
+
                     st.rerun()
 
-# -----------------
-# 프레스티지
-# -----------------
+# ----------------
+# Fleet
+# ----------------
 
-with tab5:
+st.subheader("🚀 Fleet")
 
-    need = 5 + st.session_state.prestige * 3
+fleet_cost = st.session_state.fleet * 100
 
-    st.write(
-        f"필요 행성 수: {need}"
-    )
+if st.button(
+    f"Build Fleet ({fleet_cost})"
+):
 
-    if st.button("🌠 문명 승천"):
+    if st.session_state.stars >= fleet_cost:
 
-        if len(st.session_state.planets) >= need:
+        st.session_state.stars -= fleet_cost
+        st.session_state.fleet += 1
 
-            st.session_state.prestige += 1
+        st.rerun()
 
-            st.session_state.stars = 0
-            st.session_state.fleet = 1
-            st.session_state.planets = []
-            st.session_state.research = []
+# ----------------
+# Prestige
+# ----------------
 
-            st.rerun()
+need = 5 + st.session_state.prestige
 
-# -----------------
-# 사이드바
-# -----------------
+st.subheader("🌠 Prestige")
 
-with st.sidebar:
+st.write(
+    f"Need {need} conquered planets"
+)
 
-    st.header("🏆 업적")
+if st.button("Ascend Civilization"):
 
-    if st.session_state.achievements:
-        for a in st.session_state.achievements:
-            st.success(a)
-    else:
-        st.write("없음")
+    if len(st.session_state.planets) >= need:
 
-    st.header("📊 통계")
+        st.session_state.prestige += 1
+        st.session_state.stars = 0
+        st.session_state.fleet = 1
+        st.session_state.planets = []
 
-    st.write("초당 생산:", mining_power())
-    st.write("연구 수:", len(st.session_state.research))
-    st.write("정복 수:", len(st.session_state.planets))
+        st.rerun()
+
+# ----------------
+# Auto Refresh
+# ----------------
+
+time.sleep(1)
+st.rerun()
